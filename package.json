@@ -1,0 +1,23 @@
+{
+  "name": "cors-proxy",
+  "version": "1.0.0",
+  "description": "Universal CORS proxy for media streaming with M3U8, MP4, WEBM support",
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "scripts": {
+    "start": "node ./src/index.js",
+    "dev": "nodemon ./src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "colors": "^1.4.0",
+    "http-proxy": "^1.18.1",
+    "proxy-from-env": "^1.1.0"
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

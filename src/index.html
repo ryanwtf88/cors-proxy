@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proxy Player</title>
+    <meta name="description" content="Playground for testing m3u8 proxy." />
+    <meta property="og:title" content="Cors Proxy" />
+    <meta
+      property="og:description"
+      content="Playground for testing cors proxy."
+    />
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  </head>
+
+  <body class="bg-gray-900 text-white min-h-screen px-4 py-8">
+    <!-- Header -->
+    <div class="max-w-screen-xl mx-auto mb-8">
+      <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 mb-4">
+        <h1 class="text-4xl font-bold mb-2">CORS Proxy Player</h1>
+        <p class="text-lg text-blue-100">Stream any media with CORS support - M3U8, MP4, WEBM, MP3 & more</p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <span class="bg-white/20 px-3 py-1 rounded text-sm">StreamWish</span>
+          <span class="bg-white/20 px-3 py-1 rounded text-sm">VidWish</span>
+          <span class="bg-white/20 px-3 py-1 rounded text-sm">MegaCloud</span>
+          <span class="bg-white/20 px-3 py-1 rounded text-sm">YouTube</span>
+          <span class="bg-white/20 px-3 py-1 rounded text-sm">Vimeo</span>
+        </div>
+      </div>
+      
+      <div class="flex gap-3 mb-6">
+        <a href="/docs" class="flex-1 bg-blue-600 hover:bg-blue-700 text-center py-3 rounded-lg font-semibold transition">
+          <span style="display: inline-block; margin-right: 6px;">&#128218;</span> Documentation
+        </a>
+        <a href="/stream/s-2/136197/dub" class="flex-1 bg-purple-600 hover:bg-purple-700 text-center py-3 rounded-lg font-semibold transition">
+          <span style="display: inline-block; margin-right: 6px;">&#9654;</span> Example Player
+        </a>
+      </div>
+    </div>
+
+    <div class="w-full max-w-screen-xl mx-auto bg-gray-800 rounded-xl shadow-lg p-6 space-y-6">
+      <div>
+        <h2 class="text-2xl font-bold mb-2">Test Proxy</h2>
+        <p class="text-sm text-gray-400">Paste your media URL and headers to test the proxy</p>
+      </div>
+
+      <div class="space-y-4">
+        <!-- URL Input -->
+        <div>
+          <label for="url" class="block text-sm font-medium text-gray-300 mb-1"
+            >URL's</label
+          >
+          <input
+            type="text"
+            id="url"
+            class="w-full bg-gray-700 border border-gray-600 rounded-sm px-2 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value="https://cdn.dotstream.buzz/anime/eccbc87e4b5ce2fe28308fd9f2a7baf3/98960e8859d29683ad5984c4bae288af/master.m3u8"
+          />
+        </div>
+
+        <!-- Headers Input -->
+        <div>
+          <label
+            for="headers"
+            class="block text-sm font-medium text-gray-300 mb-1"
+            >Headers (JSON)</label
+          >
+          <textarea
+            id="headers"
+            class="w-full bg-gray-700 border border-gray-600 rounded-sm px-2 py-2 text-white h-12 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+{"referer": "https://dotstream.buzz/"}</textarea
+          >
+        </div>
+
+        <!-- Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+          <button
+            onclick="copy()"
+            id="copy"
+            class="copy bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg transition"
+          >
+            <svg style="display:inline;width:18px;height:18px;vertical-align:middle;margin-right:6px" fill="currentColor" viewBox="0 0 24 24"><path d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7Z"/></svg>Copy Proxy URL
+          </button>
+          <button
+            onclick="test()"
+            class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition"
+          >
+            <svg style="display:inline;width:18px;height:18px;vertical-align:middle;margin-right:6px" fill="currentColor" viewBox="0 0 24 24"><path d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg>Play Stream
+          </button>
+        </div>
+
+        <!-- Video -->
+        <div class="mt-6">
+          <video
+            id="hls"
+            controls
+            class="w-full rounded-md aspect-video bg-black"
+          ></video>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function copy() {
+        const url = document.getElementById("url").value;
+        let headers = document.getElementById("headers").value;
+        const copy = document.getElementById("copy");
+
+        const location = window.location.href;
+        const properUrl = `${location}proxy?url=${encodeURIComponent(
+          url
+        )}&headers=${encodeURIComponent(JSON.stringify(JSON.parse(headers)))}`;
+
+        copy.innerHTML = '<svg style="display:inline;width:18px;height:18px;vertical-align:middle;margin-right:6px" fill="currentColor" viewBox="0 0 24 24"><path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/></svg>Copied!';
+        setTimeout(() => {
+          copy.innerHTML = '<svg style="display:inline;width:18px;height:18px;vertical-align:middle;margin-right:6px" fill="currentColor" viewBox="0 0 24 24"><path d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7Z"/></svg>Copy Proxy URL';
+        }, 2000);
+        navigator.clipboard.writeText(properUrl);
+      }
+      function test() {
+        const url = document.getElementById("url").value;
+        let headers = document.getElementById("headers").value;
+
+        try {
+          headers = JSON.parse(headers);
+        } catch (e) {
+          headers = {};
+          alert("Invalid JSON in headers. Reset to {}.");
+        }
+
+        console.log("Using URL:", url);
+        console.log("Using Headers:", headers);
+
+        const proxyURL = `/proxy?url=${encodeURIComponent(
+          url
+        )}&headers=${encodeURIComponent(JSON.stringify(headers))}`;
+        
+        console.log("Proxy URL:", proxyURL);
+        
+        const video = document.getElementById("hls");
+        
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            debug: true,
+            enableWorker: true,
+            lowLatencyMode: true,
+            xhrSetup: function(xhr, url) {
+              console.log("Loading:", url);
+            }
+          });
+
+          hls.loadSource(proxyURL);
+          hls.attachMedia(video);
+          
+          hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            console.log("✓ Stream loaded successfully");
+            video.play().catch(e => {
+              console.log("Autoplay prevented, click play button");
+            });
+          });
+          
+          hls.on(Hls.Events.ERROR, function (event, data) {
+            console.error("HLS Error:", data);
+            if (data.fatal) {
+              switch(data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.error("Network error - attempting recovery");
+                  alert("Network error: Failed to load stream. Check if the URL is accessible and the referer header is correct.");
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.error("Media error - attempting recovery");
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  console.error("Fatal error - cannot recover");
+                  alert("Failed to load stream. Check console for details.\n\nError: " + data.type + "\nDetails: " + (data.details || 'Unknown'));
+                  hls.destroy();
+                  break;
+              }
+            }
+          });
+          
+          hls.on(Hls.Events.FRAG_LOADED, function() {
+            console.log("✓ Fragment loaded");
+          });
+          
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = proxyURL;
+          video.addEventListener('loadedmetadata', function() {
+            console.log("✓ Video metadata loaded");
+            video.play().catch(e => console.log("Autoplay prevented"));
+          });
+          video.addEventListener('error', function(e) {
+            console.error("Video error:", e);
+            alert("Failed to load stream. Check console for details.");
+          });
+        } else {
+          alert("Your browser doesn't support HLS playback");
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        #player-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+        
+        #video-player {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #error-message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(220, 38, 38, 0.95);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 90%;
+            z-index: 20;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        #error-message h3 {
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        
+        #error-message p {
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            text-align: center;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        .controls-hint.show {
+            opacity: 1;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <div id="player-container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Loading stream...</div>
+        </div>
+        <div id="error-message">
+            <h3><svg style="display:inline-block;width:24px;height:24px;vertical-align:middle;margin-right:8px" fill="#ff6b6b" viewBox="0 0 24 24"><path d="M13,14H11V10H13M13,18H11V16H13M1,21H23L12,2L1,21Z"/></svg>Failed to Load Stream</h3>
+            <p id="error-text">Unable to load the video stream. Please check the episode ID and try again.</p>
+        </div>
+        <video 
+            id="video-player" 
+            controls 
+            autoplay 
+            playsinline
+            controlsList="nodownload"
+        ></video>
+        <div class="controls-hint" id="controls-hint">
+            Use player controls or keyboard shortcuts
+        </div>
+    </div>
+
+    <script>
+        // Parse URL to get episode ID and language
+        function parseStreamUrl() {
+            const path = window.location.pathname;
+            // Match: /stream/s-2/{anything}/{language}
+            // The {anything} can include '?' characters for episode IDs like "anime-19544?ep=136197"
+            const parts = path.split('/').filter(p => p);
+            
+            if (parts.length >= 4 && parts[0] === 'stream' && parts[1] === 's-2') {
+                const language = parts[parts.length - 1]; // Last part is language
+                const episodeId = parts.slice(2, -1).join('/'); // Everything between s-2 and language
+                
+                return {
+                    episodeId: decodeURIComponent(episodeId),
+                    language: language
+                };
+            }
+            return null;
+        }
+
+        // Get stream URL from your API or source
+        async function getStreamUrl(episodeId, language) {
+            try {
+                // Call the backend API to get stream data
+                const response = await fetch(`/api/stream/${episodeId}/${language}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    console.warn('API returned error, using fallback:', data.error);
+                    // Return test stream as fallback
+                    return {
+                        streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+                        referer: ''
+                    };
+                }
+                
+                return {
+                    streamUrl: data.streamUrl,
+                    referer: data.referer || '',
+                    tracks: data.tracks || []
+                };
+            } catch (error) {
+                console.error('Error fetching stream URL:', error);
+                // Return test stream as fallback
+                return {
+                    streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+                    referer: ''
+                };
+            }
+        }
+
+        // Get referer/headers based on stream source
+        function getStreamHeaders(streamUrl, customReferer) {
+            const headers = {};
+            
+            // Use custom referer if provided
+            if (customReferer) {
+                headers.referer = customReferer;
+                return headers;
+            }
+            
+            // Auto-detect based on URL
+            if (streamUrl.includes('vidwish.live')) {
+                headers.referer = 'https://vidwish.live/';
+            } else if (streamUrl.includes('streamwish.to')) {
+                headers.referer = 'https://streamwish.to/';
+            } else if (streamUrl.includes('megaplay.buzz')) {
+                headers.referer = 'https://megaplay.buzz/';
+            } else if (streamUrl.includes('megacloud.club')) {
+                headers.referer = 'https://megacloud.club/';
+            } else if (streamUrl.includes('dotstream.buzz')) {
+                headers.referer = 'https://dotstream.buzz/';
+            } else if (streamUrl.includes('tubeplx.viddsn.cfd')) {
+                headers.referer = 'https://tubeplx.viddsn.cfd/';
+            } else if (streamUrl.includes('hianime')) {
+                headers.referer = 'https://hianime.to/';
+            }
+            
+            return headers;
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('error-text').textContent = message;
+        }
+
+        // Hide loading
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Show controls hint
+        function showControlsHint() {
+            const hint = document.getElementById('controls-hint');
+            hint.classList.add('show');
+            setTimeout(() => {
+                hint.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize player
+        async function initPlayer() {
+            const streamInfo = parseStreamUrl();
+            
+            if (!streamInfo) {
+                showError('Invalid stream URL format. Use: /stream/s-2/{episode-id}/{language}');
+                return;
+            }
+
+            try {
+                // Get the actual stream URL from the API
+                const streamData = await getStreamUrl(streamInfo.episodeId, streamInfo.language);
+                const streamUrl = streamData.streamUrl;
+                const headers = getStreamHeaders(streamUrl, streamData.referer);
+                
+                console.log('Stream URL:', streamUrl);
+                console.log('Headers:', headers);
+                
+                // Build proxy URL
+                const baseUrl = window.location.origin;
+                const proxyUrl = `${baseUrl}/proxy?url=${encodeURIComponent(streamUrl)}&headers=${encodeURIComponent(JSON.stringify(headers))}`;
+                
+                const video = document.getElementById('video-player');
+                
+                if (Hls.isSupported()) {
+                    const hls = new Hls({
+                        debug: false,
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        backBufferLength: 90,
+                        maxBufferLength: 30,
+                        maxMaxBufferLength: 60,
+                        manifestLoadingTimeOut: 10000,
+                        manifestLoadingMaxRetry: 4,
+                        levelLoadingTimeOut: 10000,
+                        levelLoadingMaxRetry: 4,
+                        fragLoadingTimeOut: 20000,
+                        fragLoadingMaxRetry: 6,
+                        xhrSetup: function(xhr, url) {
+                            xhr.withCredentials = false;
+                        }
+                    });
+
+                    hls.loadSource(proxyUrl);
+                    hls.attachMedia(video);
+                    
+                    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                        hideLoading();
+                        video.play().catch(e => {
+                            console.log('Autoplay was prevented, user interaction needed');
+                            showControlsHint();
+                        });
+                    });
+
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        console.error('HLS Error:', data);
+                        
+                        if (data.fatal) {
+                            switch(data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    showError('Network error: Failed to load stream. Please check your connection.');
+                                    hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    showError('Media error: Failed to decode stream.');
+                                    hls.recoverMediaError();
+                                    break;
+                                default:
+                                    showError('Fatal error: Unable to play stream.');
+                                    hls.destroy();
+                                    break;
+                            }
+                        }
+                    });
+
+                    // Handle quality changes
+                    hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+                        console.log('Quality level switched to:', data.level);
+                    });
+
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Native HLS support (Safari)
+                    video.src = proxyUrl;
+                    
+                    video.addEventListener('loadedmetadata', function() {
+                        hideLoading();
+                        video.play().catch(e => {
+                            console.log('Autoplay was prevented');
+                            showControlsHint();
+                        });
+                    });
+
+                    video.addEventListener('error', function() {
+                        showError('Failed to load stream. Please try again.');
+                    });
+                } else {
+                    showError('Your browser does not support HLS video playback.');
+                }
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', function(e) {
+                    switch(e.key) {
+                        case ' ':
+                        case 'k':
+                            e.preventDefault();
+                            video.paused ? video.play() : video.pause();
+                            break;
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            video.currentTime -= 5;
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            video.currentTime += 5;
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            video.volume = Math.min(1, video.volume + 0.1);
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            video.volume = Math.max(0, video.volume - 0.1);
+                            break;
+                        case 'f':
+                            e.preventDefault();
+                            if (document.fullscreenElement) {
+                                document.exitFullscreen();
+                            } else {
+                                video.requestFullscreen();
+                            }
+                            break;
+                        case 'm':
+                            e.preventDefault();
+                            video.muted = !video.muted;
+                            break;
+                    }
+                });
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Failed to initialize player: ' + error.message);
+            }
+        }
+
+        // Start when page loads
+        window.addEventListener('DOMContentLoaded', initPlayer);
+
+        // Prevent right-click context menu on video
+        document.getElementById('video-player').addEventListener('contextmenu', e => e.preventDefault());
+    </script>
+</body>
+</html>
