@@ -1,23 +1,38 @@
 {
   "name": "cors-proxy",
-  "version": "1.0.0",
-  "description": "Universal CORS proxy for media streaming with M3U8, MP4, WEBM support",
-  "devDependencies": {
-    "nodemon": "^3.1.4"
-  },
+  "version": "2.0.0",
+  "description": "Universal CORS proxy for media streaming with M3U8, MP4, WEBM support - Next.js Serverless",
+  "private": true,
   "scripts": {
-    "start": "node ./src/index.js",
-    "dev": "nodemon ./src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "axios": "^0.27.2",
-    "colors": "^1.4.0",
-    "http-proxy": "^1.18.1",
-    "proxy-from-env": "^1.1.0"
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "hls.js": "^1.5.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.0"
   },
   "type": "module",
-  "keywords": [],
+  "keywords": [
+    "cors",
+    "proxy",
+    "m3u8",
+    "hls",
+    "streaming",
+    "youtube",
+    "serverless",
+    "vercel"
+  ],
   "author": "",
   "license": "MIT"
 }
