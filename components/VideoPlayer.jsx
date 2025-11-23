@@ -33,12 +33,20 @@ export default function VideoPlayer({ src, className = '' }) {
                 }
 
                 const hls = new Hls({
-                    debug: true,
+                    debug: false,
                     enableWorker: true,
                     lowLatencyMode: false,
                     backBufferLength: 90,
+                    manifestLoadingTimeOut: 30000, // 30 seconds for manifest
+                    manifestLoadingMaxRetry: 3,
+                    manifestLoadingRetryDelay: 1000,
+                    levelLoadingTimeOut: 30000,
+                    levelLoadingMaxRetry: 3,
+                    fragLoadingTimeOut: 30000,
+                    fragLoadingMaxRetry: 3,
                     xhrSetup: function (xhr, url) {
-                        console.log('XHR Setup for:', url);
+                        // Add timeout to XHR requests
+                        xhr.timeout = 30000;
                     }
                 });
 
@@ -62,19 +70,31 @@ export default function VideoPlayer({ src, className = '' }) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
                                 console.error('Network error details:', data);
-                                setError(`Network error: ${data.details}. Check if the URL is accessible.`);
-                                // Try to recover
+
+                                let networkErrorMsg = 'Network error loading stream.';
+                                if (data.details === 'manifestLoadTimeOut') {
+                                    networkErrorMsg = 'Stream took too long to respond. The URL may be blocked, rate-limited, or require authentication.';
+                                } else if (data.details === 'manifestLoadError') {
+                                    networkErrorMsg = 'Failed to load stream manifest. Check if the URL is accessible and not blocked by CORS or Cloudflare.';
+                                } else if (data.details.includes('Timeout')) {
+                                    networkErrorMsg = 'Request timeout. The stream server is not responding.';
+                                }
+
+                                setError(networkErrorMsg);
+
+                                // Try to recover after a delay
                                 setTimeout(() => {
                                     console.log('Attempting to recover from network error');
                                     hls.startLoad();
-                                }, 1000);
+                                }, 2000);
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
                                 console.error('Media error - attempting recovery');
+                                setError('Media error occurred. Attempting to recover...');
                                 hls.recoverMediaError();
                                 break;
                             default:
-                                setError(`Fatal error: ${data.details || 'Unknown error'}`);
+                                setError(`Playback error: ${data.details || 'Unknown error'}. Check console for details.`);
                                 hls.destroy();
                                 break;
                         }

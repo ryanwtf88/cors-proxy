@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Proxy Demo - Working Examples</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .demo-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .status.works {
+            background: #10b981;
+            color: white;
+        }
+
+        .status.fails {
+            background: #ef4444;
+            color: white;
+        }
+
+        video {
+            width: 100%;
+            max-width: 800px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin: 20px 0;
+        }
+
+        .url-display {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .explanation {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .explanation strong {
+            color: #92400e;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #ef4444;
+        }
+
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #10b981;
+        }
+
+        .code {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 CORS Proxy Demo</h1>
+        <p class="subtitle">See what works and what doesn't</p>
+
+        <!-- Example 1: HLS Stream (Works) -->
+        <div class="demo-section">
+            <h2>
+                <span>Example 1: HLS Stream (.m3u8)</span>
+                <span class="status works">✅ WORKS</span>
+            </h2>
+            
+            <div class="explanation">
+                <strong>Why it works:</strong> This is a direct M3U8 stream URL. The proxy fetches it, rewrites all segment URLs to go through the proxy, and returns it with CORS headers.
+            </div>
+
+            <video id="video1" controls></video>
+            
+            <div class="url-display">
+                Original: https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+            </div>
+            
+            <button onclick="loadHLS()">▶️ Load HLS Stream</button>
+            <div id="status1"></div>
+        </div>
+
+        <!-- Example 2: Direct MP4 (Works) -->
+        <div class="demo-section">
+            <h2>
+                <span>Example 2: Direct MP4 File</span>
+                <span class="status works">✅ WORKS</span>
+            </h2>
+            
+            <div class="explanation">
+                <strong>Why it works:</strong> This is a direct MP4 file URL. The proxy adds CORS headers and streams it directly.
+            </div>
+
+            <video id="video2" controls></video>
+            
+            <div class="url-display">
+                Original: https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4
+            </div>
+            
+            <button onclick="loadMP4()">▶️ Load MP4 Video</button>
+            <div id="status2"></div>
+        </div>
+
+        <!-- Example 3: YouTube (Doesn't Work) -->
+        <div class="demo-section">
+            <h2>
+                <span>Example 3: YouTube URL</span>
+                <span class="status fails">❌ DOESN'T WORK</span>
+            </h2>
+            
+            <div class="explanation">
+                <strong>Why it doesn't work:</strong> YouTube URLs are HTML pages, not direct video streams. You need to extract the actual stream URL first using tools like yt-dlp.
+            </div>
+
+            <div class="url-display">
+                YouTube URL: https://youtu.be/3E012y-FEV4
+            </div>
+            
+            <button onclick="tryYouTube()">❌ Try YouTube (Will Fail)</button>
+            <div id="status3"></div>
+
+            <div class="code">
+# To proxy YouTube, you need to extract the stream first:
+$ yt-dlp -f best -g "https://youtu.be/3E012y-FEV4"
+# Then proxy the returned stream URL
+            </div>
+        </div>
+
+        <!-- Example 4: Cloudflare Protected (Doesn't Work) -->
+        <div class="demo-section">
+            <h2>
+                <span>Example 4: Cloudflare Protected</span>
+                <span class="status fails">❌ DOESN'T WORK</span>
+            </h2>
+            
+            <div class="explanation">
+                <strong>Why it doesn't work:</strong> watching.onl uses advanced Cloudflare protection that detects and blocks automated requests, even from headless browsers.
+            </div>
+
+            <div class="url-display">
+                watching.onl: https://fxpy7.watching.onl/anime/.../master.m3u8
+            </div>
+            
+            <button onclick="tryCloudflare()">❌ Try Cloudflare Site (Will Fail)</button>
+            <div id="status4"></div>
+        </div>
+    </div>
+
+    <script>
+        const PROXY_URL = 'http://localhost:3000/api/proxy?url=';
+        
+        function loadHLS() {
+            const video = document.getElementById('video1');
+            const status = document.getElementById('status1');
+            const originalUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+            const proxyUrl = PROXY_URL + encodeURIComponent(originalUrl);
+            
+            status.innerHTML = '<div class="success">Loading HLS stream...</div>';
+            
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(proxyUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    status.innerHTML = '<div class="success">✅ Stream loaded successfully! Press play to watch.</div>';
+                });
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    status.innerHTML = '<div class="error">❌ Error: ' + data.details + '</div>';
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = proxyUrl;
+                status.innerHTML = '<div class="success">✅ Stream loaded successfully! Press play to watch.</div>';
+            }
+        }
+        
+        function loadMP4() {
+            const video = document.getElementById('video2');
+            const status = document.getElementById('status2');
+            const originalUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+            const proxyUrl = PROXY_URL + encodeURIComponent(originalUrl);
+            
+            status.innerHTML = '<div class="success">Loading MP4 video...</div>';
+            video.src = proxyUrl;
+            
+            video.onloadeddata = function() {
+                status.innerHTML = '<div class="success">✅ Video loaded successfully! Press play to watch.</div>';
+            };
+            
+            video.onerror = function() {
+                status.innerHTML = '<div class="error">❌ Failed to load video</div>';
+            };
+        }
+        
+        function tryYouTube() {
+            const status = document.getElementById('status3');
+            const youtubeUrl = 'https://youtu.be/3E012y-FEV4';
+            const proxyUrl = PROXY_URL + encodeURIComponent(youtubeUrl);
+            
+            status.innerHTML = '<div class="success">Attempting to fetch YouTube page...</div>';
+            
+            fetch(proxyUrl)
+                .then(response => response.text())
+                .then(html => {
+                    if (html.includes('<!DOCTYPE html>') || html.includes('<html')) {
+                        status.innerHTML = `
+                            <div class="error">
+                                ❌ As expected, this returned an HTML page, not a video stream!<br>
+                                <strong>Received:</strong> HTML webpage (${html.length} characters)<br>
+                                <strong>Expected:</strong> Video stream data<br><br>
+                                <strong>Solution:</strong> Use yt-dlp to extract the actual stream URL first.
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    status.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+                });
+        }
+        
+        function tryCloudflare() {
+            const status = document.getElementById('status4');
+            const cfUrl = 'https://fxpy7.watching.onl/anime/3b5f657f49a25ad6dae77d4e048d1003/147b6d65868586ebe3e3ae92953d4fe3/master.m3u8';
+            const proxyUrl = PROXY_URL + encodeURIComponent(cfUrl);
+            
+            status.innerHTML = '<div class="success">Attempting to bypass Cloudflare...</div>';
+            
+            fetch(proxyUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        status.innerHTML = `
+                            <div class="error">
+                                ❌ Cloudflare blocked the request!<br>
+                                <strong>Error:</strong> ${data.error}<br><br>
+                                <strong>Why:</strong> Cloudflare detects automated requests through TLS fingerprinting, 
+                                JavaScript challenges, and behavioral analysis.<br><br>
+                                <strong>Solutions:</strong>
+                                <ul style="margin-top: 10px;">
+                                    <li>Use a residential proxy service (BrightData, Oxylabs)</li>
+                                    <li>Get valid cookies from a real browser session</li>
+                                    <li>Contact the site owner for API access</li>
+                                </ul>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    status.innerHTML = '<div class="error">❌ Error: ' + error.message + '</div>';
+                });
+        }
+    </script>
+</body>
+</html>
