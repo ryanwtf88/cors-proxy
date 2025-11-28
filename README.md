@@ -1,4 +1,4 @@
-# CORS Proxy - Next.js Serverless
+# CORS Proxy - still not done yet i'll do later
 
 Universal CORS proxy for media streaming with full support for M3U8, MP4, WEBM, YouTube, and livestreams. Built with Next.js, React, and Tailwind CSS for serverless deployment on Vercel.
 
